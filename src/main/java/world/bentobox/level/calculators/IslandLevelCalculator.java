@@ -438,7 +438,18 @@ public class IslandLevelCalculator {
 
     private void roseStackerCheck(Chunk chunk) {
         if (addon.isRoseStackersEnabled()) {
-            RoseStackerAPI.getInstance().getStackedBlocks(Collections.singletonList(chunk)).forEach(e -> {
+            RoseStackerAPI rsAPI = RoseStackerAPI.getInstance();
+
+            rsAPI.getStackedBlocks(Collections.singletonList(chunk)).forEach(e -> {
+                // Blocks below sea level can be scored differently
+                boolean belowSeaLevel = seaHeight > 0 && e.getLocation().getY() <= seaHeight;
+                // Check block once because the base block will be counted in the chunk snapshot
+                for (int _x = 0; _x < e.getStackSize() - 1; _x++) {
+                    checkBlock(e.getBlock().getType(), belowSeaLevel);
+                }
+            });
+
+            rsAPI.getStackedSpawners(Collections.singletonList(chunk)).forEach(e -> {
                 // Blocks below sea level can be scored differently
                 boolean belowSeaLevel = seaHeight > 0 && e.getLocation().getY() <= seaHeight;
                 // Check block once because the base block will be counted in the chunk snapshot
