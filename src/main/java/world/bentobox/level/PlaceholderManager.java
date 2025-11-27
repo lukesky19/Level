@@ -7,11 +7,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import org.bukkit.Bukkit;
-import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
-import org.bukkit.Registry;
-import org.bukkit.World;
+import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.CreatureSpawner;
@@ -19,14 +15,15 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BlockStateMeta;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.eclipse.jdt.annotation.Nullable;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
-import org.eclipse.jdt.annotation.Nullable;
 
 import com.nexomc.nexo.api.NexoBlocks;
 import com.nexomc.nexo.api.NexoItems;
 import com.nexomc.nexo.mechanics.custom_block.CustomBlockMechanic;
 
+import org.jetbrains.annotations.NotNull;
 import world.bentobox.bentobox.BentoBox;
 import world.bentobox.bentobox.api.addons.GameModeAddon;
 import world.bentobox.bentobox.api.user.User;
@@ -240,17 +237,35 @@ public class PlaceholderManager {
     String getRankName(World world, int rank, boolean weighted) {
         // Ensure rank is within bounds
         rank = Math.max(1, Math.min(rank, Level.TEN));
-        if (weighted) {
-            return addon.getManager().getWeightedTopTen(world, Level.TEN).keySet().stream().skip(rank - 1L).limit(1L)
-                    .findFirst().map(Island::getOwner).filter(Objects::nonNull).map(addon.getPlayers()::getName)
-                    .orElse("");
-        }
-        @Nullable
-        UUID owner = addon.getManager().getTopTen(world, Level.TEN).keySet().stream().skip(rank - 1L).limit(1L)
-                .findFirst().flatMap(addon.getIslands()::getIslandById).filter(island -> island.getOwner() != null) // Filter out null owners
-                .map(Island::getOwner).orElse(null);
 
-        return addon.getPlayers().getName(owner);
+        @NotNull Optional<UUID> optionalOwnerId;
+        if(weighted) {
+            optionalOwnerId = addon.getManager().getWeightedTopTen(world, Level.TEN).keySet().stream()
+                    .skip(rank - 1L)
+                    .limit(1L)
+                    .findFirst()
+                    .map(Island::getOwner);
+        } else {
+            optionalOwnerId = addon.getManager().getTopTen(world, Level.TEN).keySet().stream()
+                    .skip(rank - 1L)
+                    .limit(1L)
+                    .findFirst()
+                    .flatMap(addon.getIslands()::getIslandById)
+                    .filter(island -> island.getOwner() != null) // Filter out null owners
+                    .map(Island::getOwner);
+        }
+
+        return optionalOwnerId
+                .flatMap(ownerId -> {
+                    @Nullable String playerName = addon.getPlayers().getName(ownerId);
+                    if(playerName.isEmpty()) {
+                        @Nullable OfflinePlayer offlineOwner = addon.getServer().getOfflinePlayer(ownerId);
+                        playerName = offlineOwner.getName();
+                    }
+
+                    return Optional.ofNullable(playerName);
+                })
+                .orElse("");
     }
 
     /**
